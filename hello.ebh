@@ -1,0 +1,8 @@
+VERBOSE
+PRINT "HELLO WORLD"
+PRINT "ICH BIN EBHAN DER EXTRA"
+PRINT ""
+PRINT "The next equaion is 15*(1+5)"
+PRINT 15*(1+5)
+PRINT "The next equaion is 15*1+5"
+PRINT 15*1+5
