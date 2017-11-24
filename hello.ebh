@@ -1,8 +1,14 @@
 VERBOSE
-PRINT "HELLO WORLD"
-PRINT "ICH BIN EBHAN DER EXTRA"
-PRINT ""
-PRINT "The next equaion is 15*(1+5)"
-PRINT 15*(1+5)
-PRINT "The next equaion is 15*1+5"
-PRINT 15*1+5
+PRINT "Welcome to EBHAN"
+PRINT "LOADING VARS"
+
+DEF col AS "blue"
+DEF num AS 7
+DEF eqn AS 7-2
+
+PRINT "col : &col"
+PRINT "num : &num"
+PRINT "eqn : &eqn"
+
+PRINT "HARD VARS"
+PRINT "VER : &VER"
