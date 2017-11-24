@@ -1,14 +1,8 @@
-VERBOSE
-PRINT "Welcome to EBHAN"
-PRINT "LOADING VARS"
+PRINT "EBHAN"
+PRINT "52-5"
+PRINT 52-5
 
-DEF col AS "blue"
-DEF num AS 7
-DEF eqn AS 7-2
-
-PRINT "col : &col"
-PRINT "num : &num"
-PRINT "eqn : &eqn"
-
-PRINT "HARD VARS"
-PRINT "VER : &VER"
+DEF X AS 47
+PRINT "\nDEF X AS 47"
+PRINT "X-5"
+PRINT "%{X}-5"

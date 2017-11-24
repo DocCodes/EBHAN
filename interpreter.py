@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 import sys
 import re
+from src import Enum, states
+import commands as cmd
 
 
-
-verbose = False
+state = 0
+verbose = [0]*8
 env = {
-   "VER": "b0.2.0",
-   "COPY": "Evan Young 2017"
+   "VER": "0.2.1a (v0.2.1a Nov 24 2017 5:42:59)",
+   "COPYRIGHT": "Copyright (c) 2017 Evan Young\\nAll Rights Reserved."
 }
-class Error(Exception):
-   pass
-class EOL(Error):
-   pass
+
 
 
 ###############################################################################
@@ -25,30 +24,25 @@ class EOL(Error):
 def lex(filecontents):
    """
    Globals
-   verbose      {bool} : Whether or not the interpeter is verbose
+   verbose      {int}  : Whether or not the interpeter is verbose
    env          {dict} : The environment variables
+   state        {int}  : The state of the lexer
 
    Locals
    filecontents {list} : The raw text in list format
    tok          {str}  : The current string tape
    tokens       {list} : The tokens recognized
-   state        {int}  : 0-DEFAULT
-                         1-STR
-                         2-EQN
-                         3-VAR
-                         4-NAME
-                         5-STR
-                         6-EQN
    string       {str}  : The buffered string
    equation     {str}  : The math string
    vname        {str}  : The current variable's name
    vval         {str}  : The current variable's value
    """
    global verbose
+   global env
+   global state
    filecontents = list(filecontents)
    tok = ""
    tokens = []
-   state = 0
    string = ""
    equation = ""
    vname = ""
@@ -58,75 +52,83 @@ def lex(filecontents):
    for char in filecontents:
       tok += char
 
-      if(tok == " " and (state == 0 or state == 3)):
+      if(tok == " " and (state == states.DEFAULT or state == states.VARIABLE)):
          tok = ""
       elif(tok == "\n"):
-         if(state == 1):
-            raise SyntaxError(f"EOL while scanning string literal, line {li}")
-         if(state == 2):
+         if(state == states.EQUATION):
             tokens.append("EQN:" + equation)
-         elif(state == 6):
+         elif(state == states.VAREQUATION):
             env[vname] = eval(vval)
+         elif(state in [states.STRING, states.VARIABLE, states.NAMING, states.VARSTRING]):
+            raise SyntaxError(f"EOL while scanning string literal, line {li}")
 
          equation = ""
          vval = ""
          vname = ""
-         state = 0
+         state = states.DEFAULT
          tok = ""
          li += 1
-      elif(tok == "VERBOSE" and state == 0):
-         tokens.append("VERBOSE")
-         verbose = True
+      elif(re.match("VERBOSE [0-9]+", tok) and state == states.DEFAULT):
+         num = int(tok.split()[-1])
+         code = bin(num)[2:][::-1]
+         code += "0"*(8-len(code))
+         verbose = [int(c) for c in code]
          tok = ""
-      elif(tok == "PRINT" and state == 0):
+      elif(tok == "HELP" and state == states.DEFAULT):
+         tokens.append("HELP")
+         tok = ""
+      elif(tok == "COPYRIGHT" and state == states.DEFAULT):
+         tokens.append("COPYRIGHT")
+         tok = ""
+      elif(tok == "PRINT" and state == states.DEFAULT):
          tokens.append("PRINT")
          tok = ""
-      elif(tok == "DEF" and state == 0):
-         state = 3
+      elif(tok == "DEF" and state == states.DEFAULT):
+         state = states.VARIABLE
          tok = ""
-      elif(tok.endswith(" AS ") and state == 3):
-         state = 4
+      elif(tok.endswith(" AS ") and state == states.VARIABLE):
+         state = states.NAMING
          vname = tok.split(" AS ")[0]
          env[vname] = ""
          tok = ""
 
-      elif(tok in [n.__str__() for n in range(9)] and state in [0, 1, 2, 4]):
-         if(state == 0):
-            state = 2
+      elif(tok in [n.__str__() for n in range(9)] and state in [states.DEFAULT, states.STRING, states.EQUATION, states.NAMING]):
+         if(state == states.DEFAULT):
+            state = states.EQUATION
             equation += tok
-         elif(state == 1):
+         elif(state == states.STRING):
             string += char
-         elif(state == 2):
+         elif(state == states.EQUATION):
             equation += tok
-         elif(state == 4):
-            state = 6
+         elif(state == states.NAMING):
+            state = states.VAREQUATION
             vval += tok
          tok = ""
-      elif(char == "\"" and state in [0, 1, 4, 5]):
-         if(state == 0):
-            state = 1
-         elif(state == 1):
+      elif(char == "\"" and state in [states.DEFAULT, states.STRING, states.NAMING, states.VARSTRING]):
+         if(state == states.DEFAULT):
+            state = states.STRING
+         elif(state == states.STRING):
             tokens.append("STR:" + string)
-            state = 0
+            state = states.DEFAULT
             string = ""
-         elif(state == 4):
-            state = 5
-         elif(state == 5):
-            state = 0
+         elif(state == states.NAMING):
+            state = states.VARSTRING
+         elif(state == states.VARSTRING):
+            state = states.DEFAULT
             vname = ""
             vval = ""
          tok = ""
-      elif(state in [1, 2, 5, 6]):
-         if(state == 1):
+      elif(state in [states.STRING, states.EQUATION, states.VARSTRING, states.VAREQUATION]):
+         if(state == states.STRING):
             string += tok
-         elif(state == 2):
+         elif(state == states.EQUATION):
             equation += tok
-         elif(state in [5, 6]):
+         elif(state in [states.VARSTRING, states.VAREQUATION]):
             vval += tok
             env[vname] = vval
          tok = ""
 
-      # if(verbose):print(f"{state}  :  {tok:<5}  :  {char}  :  {env}")
+      if(verbose[1]):print(f"{state}  :  {tok:<5}  :  {char}  :  {env}")
    return tokens
 
 
@@ -139,37 +141,23 @@ def lex(filecontents):
 # ██      ██   ██ ██   ██ ███████ ███████ ██   ██
 ###############################################################################
 def parse(tokens):
-   if(verbose):print(tokens)
+   if(verbose[0]):print(tokens)
 
    for i in range(len(tokens)):
       tok = tokens[i]
       if(i+1 != len(tokens)): nxt = tokens[i+1]
 
       if(tok == "PRINT"):
-         cmdPRINT(nxt)
-
-
-
-###############################################################################
-#  ██████  ██████  ███    ███ ███    ███  █████  ███    ██ ██████  ███████
-# ██      ██    ██ ████  ████ ████  ████ ██   ██ ████   ██ ██   ██ ██
-# ██      ██    ██ ██ ████ ██ ██ ████ ██ ███████ ██ ██  ██ ██   ██ ███████
-# ██      ██    ██ ██  ██  ██ ██  ██  ██ ██   ██ ██  ██ ██ ██   ██      ██
-#  ██████  ██████  ██      ██ ██      ██ ██   ██ ██   ████ ██████  ███████
-###############################################################################
-def cmdPRINT(nxt):
-   prStr = nxt[4:]
-   prStr = re.sub("&[A-z]*", lambda m: str(env[m.group()[1:]]), prStr)
-   if(nxt.startswith("STR")):
-      print(prStr)
-   elif(nxt.startswith("EQN")):
-      print(eval(prStr))
+         cmd.PRINT(nxt, env)
+      elif(tok == "COPYRIGHT"):
+         cmd.PRINT("VAR:%{COPYRIGHT}", env)
 
 
 
 def run():
-   data = open(sys.argv[1], "r").read()
+   data = open(sys.argv[1], "r", encoding="utf-8").read()
    tokens = lex(data)
    parse(tokens)
 
 run()
+input()
