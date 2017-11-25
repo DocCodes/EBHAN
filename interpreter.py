@@ -8,7 +8,7 @@ import exceptions
 
 state = 0
 env = {
-   "VER": "STR:0.4.1a (v0.4.1a Nov 25 2017 10:21:33)",
+   "VER": "STR:0.4.2a (v0.4.2a Nov 25 2017 11:46:59)",
    "COPYRIGHT": "STR:Copyright (c) 2017 Evan Young\\nAll Rights Reserved.",
    "TAG": "STR:AN EXTRA LANGUAGE FOR EXTRA PEOPLE"
 }
@@ -65,7 +65,7 @@ def lex(filecontents):
       elif(tok == "\t"):
          if(state != states.STRING):
             tok = ""
-      elif(tok == "\n"):
+      elif(tok == "\n" and state != states.COMMENT):
          if(state == states.EQUATION):
             tokens.append(f"EQN:{equation}")
          elif(state == states.VARIABLE):
@@ -112,6 +112,14 @@ def lex(filecontents):
       elif(tok == "ENDIF" and state == states.DEFAULT):
          tokens.append("ENDIF")
          tok = ""
+      elif(tok == "/*" and state == states.DEFAULT):
+         state = states.COMMENT
+         tok = ""
+      elif(tok.endswith("*/") and state in [states.DEFAULT, states.COMMENT]):
+         if(state == states.DEFAULT):
+            raise SyntaxError(f"comment end seen without comment start, line {li}")
+         else:
+            state = states.DEFAULT
 
       elif(state == states.VARIABLE):
          if(char == " " and var != ""):
@@ -123,14 +131,9 @@ def lex(filecontents):
          mt = re.search("%{[A-z]+}", tok)[0][2:-1]
          tokens.append(f"VAR:{mt}")
          tok = ""
-      elif(re.match("[(-9>=]", tok) and state in [states.DEFAULT, states.STRING, states.EQUATION]):
-         if(state == states.DEFAULT):
-            state = states.EQUATION
-            equation += tok
-         elif(state == states.STRING):
-            string += char
-         elif(state == states.EQUATION):
-            equation += tok
+      elif(re.match("[0-9(-.<->]+", tok) and state == states.DEFAULT):
+         state = states.EQUATION
+         equation += tok
          tok = ""
       elif(char == "\"" and state in [states.DEFAULT, states.STRING]):
          if(state == states.DEFAULT):

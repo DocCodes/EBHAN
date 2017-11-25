@@ -1,4 +1,4 @@
-VERBOSE 1
+VERBOSE 3
 PRINT "EBHAN"
 
 INPUT "PASSWORD: " DEF PASS
@@ -6,6 +6,11 @@ INPUT "PASSWORD: " DEF PASS
 IF 5 >= 4 THEN
    PRINT "MATH COMPARE IS GOOD"
 ENDIF
+
+PRINT 10/2
+PRINT 10*2
+
+/* Comments are good documentation */
 
 IF "baseball" == %{PASS} THEN
    PRINT "%{PASS} is correct"

@@ -6,10 +6,11 @@ class Enum():
          setattr(self, args[i], i)
 
 
-states = Enum("DEFAULT", "STRING", "EQUATION", "VARIABLE")
+states = Enum("DEFAULT", "STRING", "EQUATION", "VARIABLE", "COMMENT")
 """
 0 : DEFAULT     : NORMAL
 1 : STRING      : INSIDE A LITERAL STATEMENT
 2 : EQUATION    : INSIDE A MATHEMATICAL STATEMENT
 3 : VARIABLE    : VARIABLE INSTANTIATION
+4 : COMMENT     : COMMENT MODE
 """
