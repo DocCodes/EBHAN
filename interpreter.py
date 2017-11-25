@@ -8,8 +8,9 @@ import exceptions
 
 state = 0
 env = {
-   "VER": "0.4.0a (v0.4.0a Nov 25 2017 0:03:59)",
-   "COPYRIGHT": "Copyright (c) 2017 Evan Young\\nAll Rights Reserved."
+   "VER": "STR:0.4.1a (v0.4.1a Nov 25 2017 10:21:33)",
+   "COPYRIGHT": "STR:Copyright (c) 2017 Evan Young\\nAll Rights Reserved.",
+   "TAG": "STR:AN EXTRA LANGUAGE FOR EXTRA PEOPLE"
 }
 line = 1
 verbose = [0]*8
