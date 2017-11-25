@@ -8,7 +8,7 @@ import exceptions
 
 state = 0
 env = {
-   "VER": "0.3.0a (v0.3.0a Nov 24 2017 22:42:59)",
+   "VER": "0.4.0a (v0.4.0a Nov 25 2017 0:03:59)",
    "COPYRIGHT": "Copyright (c) 2017 Evan Young\\nAll Rights Reserved."
 }
 line = 1
@@ -56,6 +56,14 @@ def lex(filecontents):
 
       if(tok == " " and state == states.DEFAULT):
          tok = ""
+      elif(tok == " " and state == states.EQUATION):
+         tokens.append(f"EQN:{equation}")
+         equation = ""
+         state = states.DEFAULT
+         tok = ""
+      elif(tok == "\t"):
+         if(state != states.STRING):
+            tok = ""
       elif(tok == "\n"):
          if(state == states.EQUATION):
             tokens.append(f"EQN:{equation}")
@@ -94,6 +102,15 @@ def lex(filecontents):
          tokens.append("AS")
          var = ""
          tok = ""
+      elif(tok == "IF" and state == states.DEFAULT):
+         tokens.append("IF")
+         tok = ""
+      elif(tok == "THEN" and state == states.DEFAULT):
+         tokens.append("THEN")
+         tok = ""
+      elif(tok == "ENDIF" and state == states.DEFAULT):
+         tokens.append("ENDIF")
+         tok = ""
 
       elif(state == states.VARIABLE):
          if(char == " " and var != ""):
@@ -102,12 +119,10 @@ def lex(filecontents):
          var += tok
          tok = ""
       elif(re.match("%{[A-z]+}", tok)):
-         if(state == states.NAMING):
-            mt = re.search("%{[A-z]+}", tok)[0][2:-1]
-            env[vname] = getVariable(mt)
-            state = states.DEFAULT
+         mt = re.search("%{[A-z]+}", tok)[0][2:-1]
+         tokens.append(f"VAR:{mt}")
          tok = ""
-      elif(tok in [n.__str__() for n in range(9)] and state in [states.DEFAULT, states.STRING, states.EQUATION, states.NAMING]):
+      elif(re.match("[(-9>=]", tok) and state in [states.DEFAULT, states.STRING, states.EQUATION]):
          if(state == states.DEFAULT):
             state = states.EQUATION
             equation += tok
@@ -148,14 +163,19 @@ def cmdPRINT(nxt, env):
    if(re.search("%{[A-z]*}", prStr) != None):
       for k in re.findall("%{[A-z]*}", prStr):
          nk = k[2:-1]
-         getVariable(nk)
-   prStr = re.sub("%{[A-z]*}", lambda m: str(env[m.group()[2:-1]]), prStr)
+         v = getVariable(nk)[4:]
+         prStr = prStr.replace(k, v)
+
+   # prStr = re.sub("%{[A-z]*}", lambda m: str(env[m.group()[2:-1]]), prStr)
    if(nxt.startswith("EQN")):
       print(eval(prStr))
    else:
       print(escape(f"b'{prStr}'").decode("utf-8"))
 def cmdASSIGN(name, val):
-   env[name[4:]] = val[4:]
+   if(val.startswith("VAR")):
+      env[name[4:]] = getVariable(val[4:])
+   else:
+      env[name[4:]] = val
 def cmdINPUT(st):
    return f"STR:{input(st[4:])}"
 
@@ -171,22 +191,44 @@ def cmdINPUT(st):
 def parse(tokens):
    if(verbose[0]):print(tokens)
    i = 0
+   inif = False
+   doif = False
 
    while(i < len(tokens)):
       tok = tokens[i]
 
-      if(tok == "PRINT"):
-         cmdPRINT(tokens[i+1], env)
-         i += 1
-      elif(tok == "COPYRIGHT"):
-         cmdPRINT("VAR:%{COPYRIGHT}", env)
-      elif(tok == "INPUT"):
-         val = cmdINPUT(tokens[i+1])
-         cmdASSIGN(tokens[i+2], val)
-         i += 2
-      elif(tok.startswith("VAR")):
-         cmdASSIGN(tokens[i], tokens[i+2])
-         i += 2
+      if(tok == "ENDIF"):
+         inif = False
+      elif(not inif or (inif and doif)):
+         if(tok == "PRINT"):
+            cmdPRINT(tokens[i+1], env)
+            i += 1
+         elif(tok == "COPYRIGHT"):
+            cmdPRINT("VAR:%{COPYRIGHT}", env)
+         elif(tok == "INPUT"):
+            val = cmdINPUT(tokens[i+1])
+            cmdASSIGN(tokens[i+2], val)
+            i += 2
+         elif(tok.startswith("VAR")):
+            cmdASSIGN(tokens[i], tokens[i+2])
+            i += 2
+         elif(tok == "IF"):
+            vr1 = tokens[i+1]
+            vr2 = tokens[i+3]
+            if(vr1[:3] == "VAR"):
+               vr1 = getVariable(vr1[4:])
+            if(vr2[:3] == "VAR"):
+               vr2 = getVariable(vr2[4:])
+            op = tokens[i+2]
+
+            if(vr1[:3] == "STR"):
+               res = eval(f"'{vr1[4:]}'{op[4:]}'{vr2[4:]}'")
+            else:
+               res = eval(f"{vr1[4:]}{op[4:]}{vr2[4:]}")
+
+            inif = True
+            doif = res
+            i += 3
       i += 1
 
 def getVariable(v):

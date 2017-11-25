@@ -6,7 +6,7 @@ class Enum():
          setattr(self, args[i], i)
 
 
-states = Enum("DEFAULT", "STRING", "EQUATION", "VARIABLE", "NAMING", "VARSTRING", "VAREQUATION")
+states = Enum("DEFAULT", "STRING", "EQUATION", "VARIABLE")
 """
 0 : DEFAULT     : NORMAL
 1 : STRING      : INSIDE A LITERAL STATEMENT
