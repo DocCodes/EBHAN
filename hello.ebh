@@ -1,17 +1,30 @@
 VERBOSE 3
 PRINT "EBHAN"
 
+/* Get the password */
 INPUT "PASSWORD: " DEF PASS
 
-IF 5 >= 4 THEN
-   PRINT "MATH COMPARE IS GOOD"
+DEF GOOD AS "SUMMER"
+
+/* Attempt Login */
+IF %{PASS} === %{GOOD} THEN
+   PRINT "\nWELCOME"
+ELSE THEN
+   PRINT "\nERROR"
 ENDIF
 
-PRINT 10/2
-PRINT 10*2
+INPUT "GRADE: " DEF GR
 
-/* Comments are good documentation */
-
-IF "baseball" == %{PASS} THEN
-   PRINT "%{PASS} is correct"
+IF %{GR} === 100 THEN
+   PRINT "YOU DID 100%"
+ELSE IF %{GR} >== 90 THEN
+   PRINT "YOU DID GREAT"
+ELSE IF %{GR} >== 80 THEN
+   PRINT "YOU DID GOOD"
+ELSE IF %{GR} >== 70 THEN
+   PRINT "YOU DID OKAY"
+ELSE IF %{GR} >== 60 THEN
+   PRINT "YOU DID BAD"
+ELSE THEN
+   PRINT "YOU FAILED"
 ENDIF

@@ -8,12 +8,22 @@ import exceptions
 
 state = 0
 env = {
-   "VER": "STR:0.4.2a (v0.4.2a Nov 25 2017 11:46:59)",
+   "VER": "STR:0.4.3a (v0.4.3a Nov 25 2017 18:23:32)",
    "COPYRIGHT": "STR:Copyright (c) 2017 Evan Young\\nAll Rights Reserved.",
    "TAG": "STR:AN EXTRA LANGUAGE FOR EXTRA PEOPLE"
 }
 line = 1
 verbose = [0]*8
+SimpleAppends = [
+   "COPYRIGHT",
+   "EXIT",
+   "IF",
+   "THEN",
+   "ELSE",
+   "ENDIF",
+   "INPUT",
+   "PRINT"
+]
 
 
 
@@ -65,18 +75,17 @@ def lex(filecontents):
       elif(tok == "\t"):
          if(state != states.STRING):
             tok = ""
-      elif(tok == "\n" and state != states.COMMENT):
+      elif((tok == "\n" or tok == "\r") and state != states.COMMENT):
          if(state == states.EQUATION):
             tokens.append(f"EQN:{equation}")
          elif(state == states.VARIABLE):
             tokens.append(f"VAR:{var.strip()}")
-            state = states.DEFAULT
+            print(f"VAR:{var.strip()}")
          elif(state == states.STRING):
             raise exceptions.LiteralError(f"EOL while scanning string literal, line {line}")
 
          equation = ""
-         vval = ""
-         vname = ""
+         var = ""
          state = states.DEFAULT
          tok = ""
          line += 1
@@ -86,14 +95,8 @@ def lex(filecontents):
          code += "0"*(8-len(code))
          verbose = [int(c) for c in code]
          tok = ""
-      elif(tok == "COPYRIGHT" and state == states.DEFAULT):
-         tokens.append("COPYRIGHT")
-         tok = ""
-      elif(tok == "PRINT" and state == states.DEFAULT):
-         tokens.append("PRINT")
-         tok = ""
-      elif(tok == "INPUT" and state == states.DEFAULT):
-         tokens.append("INPUT")
+      elif(tok in SimpleAppends and state == states.DEFAULT):
+         tokens.append(tok)
          tok = ""
       elif(tok == "DEF" and state == states.DEFAULT):
          state = states.VARIABLE
@@ -103,15 +106,6 @@ def lex(filecontents):
          tokens.append("AS")
          var = ""
          tok = ""
-      elif(tok == "IF" and state == states.DEFAULT):
-         tokens.append("IF")
-         tok = ""
-      elif(tok == "THEN" and state == states.DEFAULT):
-         tokens.append("THEN")
-         tok = ""
-      elif(tok == "ENDIF" and state == states.DEFAULT):
-         tokens.append("ENDIF")
-         tok = ""
       elif(tok == "/*" and state == states.DEFAULT):
          state = states.COMMENT
          tok = ""
@@ -120,10 +114,12 @@ def lex(filecontents):
             raise SyntaxError(f"comment end seen without comment start, line {li}")
          else:
             state = states.DEFAULT
+            tok = ""
 
       elif(state == states.VARIABLE):
          if(char == " " and var != ""):
             tokens.append(f"VAR:{var.strip()}")
+            print(f"VAR:{var.strip()}")
             state = states.DEFAULT
          var += tok
          tok = ""
@@ -131,7 +127,7 @@ def lex(filecontents):
          mt = re.search("%{[A-z]+}", tok)[0][2:-1]
          tokens.append(f"VAR:{mt}")
          tok = ""
-      elif(re.match("[0-9(-.<->]+", tok) and state == states.DEFAULT):
+      elif(re.match("[0-9(-.<->!]+", tok) and state == states.DEFAULT):
          state = states.EQUATION
          equation += tok
          tok = ""
@@ -150,7 +146,7 @@ def lex(filecontents):
             equation += tok
          tok = ""
 
-      if(verbose[1]):print(f"{state:<3}:  {tok:<7}  :{char:^5}:{env}")
+      if(verbose[1]):print(f"{state:<3}:  {tok:<7}  :{char:^5}")
    return tokens
 
 
@@ -170,10 +166,10 @@ def cmdPRINT(nxt, env):
          v = getVariable(nk)[4:]
          prStr = prStr.replace(k, v)
 
-   # prStr = re.sub("%{[A-z]*}", lambda m: str(env[m.group()[2:-1]]), prStr)
    if(nxt.startswith("EQN")):
       print(eval(prStr))
    else:
+      prStr = prStr.replace("'", "\\'")
       print(escape(f"b'{prStr}'").decode("utf-8"))
 def cmdASSIGN(name, val):
    if(val.startswith("VAR")):
@@ -216,6 +212,8 @@ def parse(tokens):
          elif(tok.startswith("VAR")):
             cmdASSIGN(tokens[i], tokens[i+2])
             i += 2
+         elif(tok == "EXIT"):
+            exit()
          elif(tok == "IF"):
             vr1 = tokens[i+1]
             vr2 = tokens[i+3]
@@ -223,16 +221,17 @@ def parse(tokens):
                vr1 = getVariable(vr1[4:])
             if(vr2[:3] == "VAR"):
                vr2 = getVariable(vr2[4:])
-            op = tokens[i+2]
-
-            if(vr1[:3] == "STR"):
-               res = eval(f"'{vr1[4:]}'{op[4:]}'{vr2[4:]}'")
-            else:
-               res = eval(f"{vr1[4:]}{op[4:]}{vr2[4:]}")
+            op = tokens[i+2][4:-1]
+            if(op == ">>" or op == "<<"): op = op[0]
 
             inif = True
-            doif = res
+            doif = eval(f"'{vr1[4:]}'{op}'{vr2[4:]}'")
             i += 3
+         elif(tok == "ELSE"):
+            i = tokens.index("ENDIF", i)-1
+            doif = False
+      elif(inif and not doif and tok == "ELSE"):
+         doif = True
       i += 1
 
 def getVariable(v):
