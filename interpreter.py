@@ -8,7 +8,7 @@ import exceptions
 
 state = 0
 env = {
-   "VER": "STR:0.4.4a (v0.4.4a Nov 25 2017 18:32:23)",
+   "VER": "STR:0.4.5a (v0.4.5a Nov 26 2017 12:03:59)",
    "COPYRIGHT": "STR:Copyright (c) 2017 Evan Young\\nAll Rights Reserved.",
    "TAG": "STR:AN EXTRA LANGUAGE FOR EXTRA PEOPLE"
 }
@@ -75,12 +75,11 @@ def lex(filecontents):
       elif(tok == "\t"):
          if(state != states.STRING):
             tok = ""
-      elif((tok == "\n" or tok == "\r") and state != states.COMMENT):
+      elif(tok == "\n" or tok == "\r"):
          if(state == states.EQUATION):
             tokens.append(f"EQN:{equation}")
          elif(state == states.VARIABLE):
             tokens.append(f"VAR:{var.strip()}")
-            print(f"VAR:{var.strip()}")
          elif(state == states.STRING):
             raise exceptions.LiteralError(f"EOL while scanning string literal, line {line}")
 
@@ -89,6 +88,8 @@ def lex(filecontents):
          state = states.DEFAULT
          tok = ""
          line += 1
+      elif(char == "\n" and state == states.LINE):
+         state = states.DEFAULT
       elif(re.match("VERBOSE [0-9]+", tok) and state == states.DEFAULT):
          num = int(tok.split()[-1])
          code = bin(num)[2:][::-1]
@@ -110,6 +111,8 @@ def lex(filecontents):
          tokens.append("AS")
          var = ""
          tok = ""
+      elif(tok == "#" and state == states.DEFAULT):
+         state = states.LINE
       elif(tok == "/*" and state == states.DEFAULT):
          state = states.COMMENT
          tok = ""
@@ -123,7 +126,6 @@ def lex(filecontents):
       elif(state == states.VARIABLE):
          if(char == " " and var != ""):
             tokens.append(f"VAR:{var.strip()}")
-            print(f"VAR:{var.strip()}")
             state = states.DEFAULT
          var += tok
          tok = ""
