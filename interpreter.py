@@ -8,7 +8,7 @@ import exceptions
 
 state = 0
 env = {
-   "VER": "STR:0.4.3a (v0.4.3a Nov 25 2017 18:23:32)",
+   "VER": "STR:0.4.4a (v0.4.4a Nov 25 2017 18:32:23)",
    "COPYRIGHT": "STR:Copyright (c) 2017 Evan Young\\nAll Rights Reserved.",
    "TAG": "STR:AN EXTRA LANGUAGE FOR EXTRA PEOPLE"
 }
@@ -101,6 +101,10 @@ def lex(filecontents):
       elif(tok == "DEF" and state == states.DEFAULT):
          state = states.VARIABLE
          var += tok[3:]
+         tok = ""
+      elif(tok == "ELIF" and state == states.DEFAULT):
+         tokens.append("ELSE")
+         tokens.append("IF")
          tok = ""
       elif(tok == "AS" and state == states.DEFAULT):
          tokens.append("AS")
