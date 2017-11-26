@@ -1,4 +1,5 @@
-VERBOSE 3
+#!/usr/bin/ebhan
+VERBOSE 0
 PRINT "EBHAN"
 
 /* Get the password */
@@ -17,7 +18,7 @@ INPUT "GRADE: " DEF GR
 
 IF %{GR} === 100 THEN
    PRINT "YOU DID 100%"
-ELSE IF %{GR} >== 90 THEN
+ELIF %{GR} >== 90 THEN
    PRINT "YOU DID GREAT"
 ELSE IF %{GR} >== 80 THEN
    PRINT "YOU DID GOOD"
