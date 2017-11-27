@@ -2,9 +2,9 @@
 import sys
 import re
 from ast import literal_eval as escape
-from src import Enum, states
-import requests
-import exceptions
+from src import Enum, states, exceptions
+
+
 
 state = 0
 env = {
