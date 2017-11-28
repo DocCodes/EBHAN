@@ -8,7 +8,7 @@ from src import Enum, states, exceptions
 
 state = 0
 env = {
-   "VER": "STR:0.4.5a (v0.4.5a Nov 26 2017 12:03:59)",
+   "VER": "STR:0.4.6a (v0.4.6a Nov 28 2017 09:48:59)",
    "COPYRIGHT": "STR:Copyright (c) 2017 Evan Young\\nAll Rights Reserved.",
    "TAG": "STR:AN EXTRA LANGUAGE FOR EXTRA PEOPLE"
 }
@@ -238,6 +238,8 @@ def parse(tokens):
             doif = False
       elif(inif and not doif and tok == "ELSE"):
          doif = True
+      elif(inif and not doif):
+         i = tokens.index("ENDIF", i)
       i += 1
 
 def getVariable(v):
