@@ -5,12 +5,6 @@ class Enum():
       for i in range(len(args)):
          setattr(self, args[i], i)
 
-class exceptions():
-   class Error(Exception):pass
-
-   class LiteralError(Error):pass
-   class ReferenceError(Error):pass
-
 states = Enum("DEFAULT", "STRING", "EQUATION", "VARIABLE", "COMMENT", "LINE")
 """
 0 : DEFAULT     : NORMAL

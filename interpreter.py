@@ -2,13 +2,13 @@
 import sys
 import re
 from ast import literal_eval as escape
-from src import Enum, states, exceptions
+from src import Enum, states
 
 
 
 state = 0
 env = {
-   "VER": "STR:0.4.6a (v0.4.6a Nov 28 2017 09:48:59)",
+   "VER": "STR:0.5.0a (v0.5.0a Nov 28 2017 17:12:07)",
    "COPYRIGHT": "STR:Copyright (c) 2017 Evan Young\\nAll Rights Reserved.",
    "TAG": "STR:AN EXTRA LANGUAGE FOR EXTRA PEOPLE"
 }
@@ -22,7 +22,11 @@ SimpleAppends = [
    "ELSE",
    "ENDIF",
    "INPUT",
-   "PRINT"
+   "PRINT",
+
+   "STRING:UPPER",
+   "STRING:LOWER",
+   "STRING:TITLE"
 ]
 
 
@@ -39,7 +43,7 @@ def lex(filecontents):
    Globals
    state        {int}  : The state of the lexer
    env          {dict} : The environment variables
-   line         {int}  : The line number
+   line         {int}  : The current line number
    verbose      {int}  : Whether or not the interpeter is verbose
 
    Locals
@@ -81,15 +85,16 @@ def lex(filecontents):
          elif(state == states.VARIABLE):
             tokens.append(f"VAR:{var.strip()}")
          elif(state == states.STRING):
-            raise exceptions.LiteralError(f"EOL while scanning string literal, line {line}")
+            raise SyntaxError(f"EOL while scanning string literal, line {line}")
 
          equation = ""
          var = ""
          state = states.DEFAULT
-         tok = ""
          line += 1
+         tok = ""
       elif(char == "\n" and state == states.LINE):
          state = states.DEFAULT
+         line += 1
       elif(re.match("VERBOSE [0-9]+", tok) and state == states.DEFAULT):
          num = int(tok.split()[-1])
          code = bin(num)[2:][::-1]
@@ -118,10 +123,13 @@ def lex(filecontents):
          tok = ""
       elif(tok.endswith("*/") and state in [states.DEFAULT, states.COMMENT]):
          if(state == states.DEFAULT):
-            raise SyntaxError(f"comment end seen without comment start, line {li}")
+            raise SyntaxError(f"comment end seen without comment start")
          else:
             state = states.DEFAULT
             tok = ""
+      elif(tok == "[=]" and state == states.DEFAULT):
+         tokens.append("EQN:[=]")
+         tok = ""
 
       elif(state == states.VARIABLE):
          if(char == " " and var != ""):
@@ -152,6 +160,7 @@ def lex(filecontents):
             equation += tok
          tok = ""
 
+      checkErrors(tokens)
       if(verbose[1]):print(f"{state:<3}:  {tok:<7}  :{char:^5}")
    return tokens
 
@@ -184,6 +193,28 @@ def cmdASSIGN(name, val):
       env[name[4:]] = val
 def cmdINPUT(st):
    return f"STR:{input(st[4:])}"
+def cmdEVAL(v1, v2, op):
+   if(op != "[="):
+      ret = eval(f"'{v1}'{op}'{v2}'")
+   elif(op == "[="):
+      ret = v1 in v2
+   return ret
+
+
+
+###############################################################################
+# ███████ ██████  ██████   ██████  ██████
+# ██      ██   ██ ██   ██ ██    ██ ██   ██
+# █████   ██████  ██████  ██    ██ ██████
+# ██      ██   ██ ██   ██ ██    ██ ██   ██
+# ███████ ██   ██ ██   ██  ██████  ██   ██
+###############################################################################
+def checkErrors(tokens):
+   mx = len(tokens)-1
+   if(mx >= 2):
+      if(tokens[mx] == "INPUT" and tokens[mx-2].startswith("VAR") == False): raise SyntaxError(f"input seen without definition, line {line}")
+   if(mx >= 4):
+      if(tokens[mx-4] == "IF" and tokens[mx-2][4:-1] not in ["==", "!=", "<=", ">=", "<<", ">>", "[="]): raise SyntaxError("Illegal comparator")
 
 
 
@@ -211,42 +242,52 @@ def parse(tokens):
             i += 1
          elif(tok == "COPYRIGHT"):
             cmdPRINT("VAR:%{COPYRIGHT}", env)
-         elif(tok == "INPUT"):
-            val = cmdINPUT(tokens[i+1])
-            cmdASSIGN(tokens[i+2], val)
-            i += 2
+         elif(tok.startswith("STRING:")):
+            act = tok.split(":")[1]
+            if(act == "UPPER"):
+               new = getVariable(tokens[i+1][4:]).upper()
+            elif(act == "LOWER"):
+               new = getVariable(tokens[i+1][4:]).lower()
+            elif(act == "TITLE"):
+               new = getVariable(tokens[i+1][4:]).title()
+
+            cmdASSIGN(tokens[i+1], new)
+            i += 1
          elif(tok.startswith("VAR")):
-            cmdASSIGN(tokens[i], tokens[i+2])
-            i += 2
+            if(tokens[i+2] == "INPUT"):
+               val = cmdINPUT(tokens[i+3])
+               i += 3
+            else:
+               val = tokens[i+2]
+               i += 2
+            cmdASSIGN(tok, val)
          elif(tok == "EXIT"):
             exit()
          elif(tok == "IF"):
             vr1 = tokens[i+1]
             vr2 = tokens[i+3]
-            if(vr1[:3] == "VAR"):
-               vr1 = getVariable(vr1[4:])
-            if(vr2[:3] == "VAR"):
-               vr2 = getVariable(vr2[4:])
+            if(vr1[:3] == "VAR"): vr1 = getVariable(vr1[4:])
+            if(vr2[:3] == "VAR"): vr2 = getVariable(vr2[4:])
+
             op = tokens[i+2][4:-1]
+            if(op not in ["==", "!=", "<=", ">=", "<<", ">>", "[="]): raise SyntaxError("Illegal comparator")
             if(op == ">>" or op == "<<"): op = op[0]
 
+            doif = cmdEVAL(vr1[4:], vr2[4:], op)
             inif = True
-            doif = eval(f"'{vr1[4:]}'{op}'{vr2[4:]}'")
             i += 3
          elif(tok == "ELSE"):
-            i = tokens.index("ENDIF", i)-1
-            doif = False
-      elif(inif and not doif and tok == "ELSE"):
-         doif = True
-      elif(inif and not doif):
-         i = tokens.index("ENDIF", i)
+            i = tokens.index("ENDIF", i)
+      elif(tok == "ELSE"):
+         inif = False
+         doif = False
       i += 1
 
 def getVariable(v):
    if(v in env):
       return env[v]
    else:
-      raise exceptions.ReferenceError(f"variable '{v}' is not defined, line {line}")
+      raise NameError(f"variable '{v}' is not defined")
 
 
 
