@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import re
+import math
 from ast import literal_eval as escape
 from src import Enum, states
 
@@ -8,7 +9,7 @@ from src import Enum, states
 
 state = 0
 env = {
-   "VER": "STR:0.5.0a (v0.5.0a Nov 28 2017 17:12:07)",
+   "VER": "STR:0.5.1a (v0.5.1a Nov 29 2017 09:04:57)",
    "COPYRIGHT": "STR:Copyright (c) 2017 Evan Young\\nAll Rights Reserved.",
    "TAG": "STR:AN EXTRA LANGUAGE FOR EXTRA PEOPLE"
 }
@@ -26,7 +27,10 @@ SimpleAppends = [
 
    "STRING:UPPER",
    "STRING:LOWER",
-   "STRING:TITLE"
+   "STRING:TITLE",
+   "INTEGER:CEIL",
+   "INTEGER:FLOOR",
+   "INTEGER:ROUND"
 ]
 
 
@@ -173,22 +177,29 @@ def lex(filecontents):
 # ██      ██    ██ ██  ██  ██ ██  ██  ██ ██   ██ ██  ██ ██ ██   ██      ██
 #  ██████  ██████  ██      ██ ██      ██ ██   ██ ██   ████ ██████  ███████
 ###############################################################################
-def cmdPRINT(nxt, env):
-   prStr = nxt[4:]
-   if(re.search("%{[A-z]*}", prStr) != None):
-      for k in re.findall("%{[A-z]*}", prStr):
+def cmdSUB(s):
+   if(re.search("%{[A-z]*}", s) != None):
+      for k in re.findall("%{[A-z]*}", s):
          nk = k[2:-1]
          v = getVariable(nk)[4:]
-         prStr = prStr.replace(k, v)
+         s = s.replace(k, v)
+   return s
+def cmdPRINT(nxt, env):
+   prStr = cmdSUB(nxt[4:])
 
    if(nxt.startswith("EQN")):
       print(eval(prStr))
+   elif(nxt.startswith("VAR")):
+      print(getVariable(nxt[4:])[4:])
    else:
       prStr = prStr.replace("'", "\\'")
       print(escape(f"b'{prStr}'").decode("utf-8"))
 def cmdASSIGN(name, val):
+   val = cmdSUB(val)
    if(val.startswith("VAR")):
       env[name[4:]] = getVariable(val[4:])
+   elif(val.startswith("EQN")):
+      env[name[4:]] = f"EQN:{eval(val[4:])}"
    else:
       env[name[4:]] = val
 def cmdINPUT(st):
@@ -244,14 +255,26 @@ def parse(tokens):
             cmdPRINT("VAR:%{COPYRIGHT}", env)
          elif(tok.startswith("STRING:")):
             act = tok.split(":")[1]
+            val = getVariable(tokens[i+1][4:])[4:]
             if(act == "UPPER"):
-               new = getVariable(tokens[i+1][4:]).upper()
+               new = val.upper()
             elif(act == "LOWER"):
-               new = getVariable(tokens[i+1][4:]).lower()
+               new = val.lower()
             elif(act == "TITLE"):
-               new = getVariable(tokens[i+1][4:]).title()
+               new = val.title()
 
-            cmdASSIGN(tokens[i+1], new)
+            cmdASSIGN(tokens[i+1], f"STR:{new}")
+            i += 1
+         elif(tok.startswith("INTEGER:")):
+            act = tok.split(":")[1]
+            val = float(getVariable(tokens[i+1][4:])[4:])
+            if(act == "CEIL"):
+               new = math.ceil(val)
+            if(act == "FLOOR"):
+               new = math.floor(val)
+            if(act == "ROUND"):
+               new = round(val)
+            cmdASSIGN(tokens[i+1], f"EQN:{new}")
             i += 1
          elif(tok.startswith("VAR")):
             if(tokens[i+2] == "INPUT"):
