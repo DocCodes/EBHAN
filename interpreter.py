@@ -1,38 +1,45 @@
 #!/usr/bin/env python3
+# <region> Imports
 import sys
 import re
 import math
 from ast import literal_eval as escape
 from src import Enum, states
+# </region>
 
 
-
+# <region> Prevars
 state = 0
 env = {
-   "VER": "STR:0.5.1a (v0.5.1a Nov 29 2017 09:04:57)",
-   "COPYRIGHT": "STR:Copyright (c) 2017 Evan Young\\nAll Rights Reserved.",
+   "VER": "STR:0.6.0a",
+   "COPYRIGHT": "STR:Copyright (c) 2017-2018 Evan Young\\nAll Rights Reserved.",
    "TAG": "STR:AN EXTRA LANGUAGE FOR EXTRA PEOPLE"
 }
 line = 1
 verbose = [0]*8
 SimpleAppends = [
    "COPYRIGHT",
+   "PRINT",
    "EXIT",
    "IF",
    "THEN",
    "ELSE",
    "ENDIF",
    "INPUT",
-   "PRINT",
+   "FOR",
+   "DO",
+   "ENDFOR",
 
    "STRING:UPPER",
    "STRING:LOWER",
    "STRING:TITLE",
+   "STRING:REVERSE",
    "INTEGER:CEIL",
    "INTEGER:FLOOR",
-   "INTEGER:ROUND"
+   "INTEGER:ROUND",
+   "INTEGER:FIGURE"
 ]
-
+# </region>
 
 
 ###############################################################################
@@ -42,6 +49,7 @@ SimpleAppends = [
 # ██      ██       ██ ██  ██      ██   ██
 # ███████ ███████ ██   ██ ███████ ██   ██
 ###############################################################################
+# <region> Lexer
 def lex(filecontents):
    """
    Globals
@@ -99,7 +107,7 @@ def lex(filecontents):
       elif(char == "\n" and state == states.LINE):
          state = states.DEFAULT
          line += 1
-      elif(re.match("VERBOSE [0-9]+", tok) and state == states.DEFAULT):
+      elif(re.match("VERBOSE \d+", tok) and state == states.DEFAULT):
          num = int(tok.split()[-1])
          code = bin(num)[2:][::-1]
          code += "0"*(8-len(code))
@@ -167,7 +175,7 @@ def lex(filecontents):
       checkErrors(tokens)
       if(verbose[1]):print(f"{state:<3}:  {tok:<7}  :{char:^5}")
    return tokens
-
+# </region>
 
 
 ###############################################################################
@@ -177,6 +185,7 @@ def lex(filecontents):
 # ██      ██    ██ ██  ██  ██ ██  ██  ██ ██   ██ ██  ██ ██ ██   ██      ██
 #  ██████  ██████  ██      ██ ██      ██ ██   ██ ██   ████ ██████  ███████
 ###############################################################################
+# <region> Commands
 def cmdSUB(s):
    if(re.search("%{[A-z]*}", s) != None):
       for k in re.findall("%{[A-z]*}", s):
@@ -210,7 +219,7 @@ def cmdEVAL(v1, v2, op):
    elif(op == "[="):
       ret = v1 in v2
    return ret
-
+# </region>
 
 
 ###############################################################################
@@ -220,13 +229,17 @@ def cmdEVAL(v1, v2, op):
 # ██      ██   ██ ██   ██ ██    ██ ██   ██
 # ███████ ██   ██ ██   ██  ██████  ██   ██
 ###############################################################################
+# <region> Error
 def checkErrors(tokens):
    mx = len(tokens)-1
+   if(mx >= 1):
+      if((tokens[mx-1].startswith("STRING:") or tokens[mx-1].startswith("INTEGER:")) and tokens[mx].startswith("VAR") == False): raise SyntaxError(f"object statement without variable, line {line}")
    if(mx >= 2):
-      if(tokens[mx] == "INPUT" and tokens[mx-2].startswith("VAR") == False): raise SyntaxError(f"input seen without definition, line {line}")
+      if(tokens[mx] == "INPUT" and tokens[mx-2].startswith("VAR") == False): raise SyntaxError(f"input without definition, line {line}")
+      if(tokens[mx-2] == "INTEGER:FIGURE" and (tokens[mx-1].startswith("VAR") == False or tokens[mx].startswith("EQN") == False)): raise SyntaxError(f"figure statement without figure, line {line}")
    if(mx >= 4):
-      if(tokens[mx-4] == "IF" and tokens[mx-2][4:-1] not in ["==", "!=", "<=", ">=", "<<", ">>", "[="]): raise SyntaxError("Illegal comparator")
-
+      if(tokens[mx-4] == "IF" and tokens[mx-2][4:-1] not in ["==", "!=", "<=", ">=", "<<", ">>", "[="]): raise SyntaxError(f"illegal comparator, line {line}")
+# </region>
 
 
 ###############################################################################
@@ -236,13 +249,16 @@ def checkErrors(tokens):
 # ██      ██   ██ ██   ██      ██ ██      ██   ██
 # ██      ██   ██ ██   ██ ███████ ███████ ██   ██
 ###############################################################################
+# <region> Parser
 def parse(tokens):
    if(verbose[0]):print(tokens)
    i = 0
+   forleft = 0
    inif = False
    doif = False
 
    while(i < len(tokens)):
+      if(verbose[2]):print(tokens[i])
       tok = tokens[i]
 
       if(tok == "ENDIF"):
@@ -256,26 +272,36 @@ def parse(tokens):
          elif(tok.startswith("STRING:")):
             act = tok.split(":")[1]
             val = getVariable(tokens[i+1][4:])[4:]
+            add = 1
             if(act == "UPPER"):
                new = val.upper()
             elif(act == "LOWER"):
                new = val.lower()
             elif(act == "TITLE"):
                new = val.title()
+            elif(act == "REVERSE"):
+               new = val[::-1]
 
             cmdASSIGN(tokens[i+1], f"STR:{new}")
-            i += 1
+            i += add
          elif(tok.startswith("INTEGER:")):
             act = tok.split(":")[1]
             val = float(getVariable(tokens[i+1][4:])[4:])
+            add = 1
             if(act == "CEIL"):
                new = math.ceil(val)
-            if(act == "FLOOR"):
+            elif(act == "FLOOR"):
                new = math.floor(val)
-            if(act == "ROUND"):
+            elif(act == "ROUND"):
                new = round(val)
+            elif(act == "FIGURE"):
+               p = int(tokens[i+2][4:])
+               new = float(f"{val:0.{p}f}")
+               print(new)
+               add += 1
+
             cmdASSIGN(tokens[i+1], f"EQN:{new}")
-            i += 1
+            i += add
          elif(tok.startswith("VAR")):
             if(tokens[i+2] == "INPUT"):
                val = cmdINPUT(tokens[i+3])
@@ -284,6 +310,24 @@ def parse(tokens):
                val = tokens[i+2]
                i += 2
             cmdASSIGN(tok, val)
+         elif(tok == "ENDFOR"):
+            forleft -= 1
+            cmdASSIGN("VAR:ITER", f"EQN:{int(getVariable('ITER')[4:])+1}")
+
+            rev = tokens[::-1]
+            revi = abs(len(tokens)-i-1)
+            if (forleft > 0):i = abs(len(tokens)-rev.index('FOR', revi)-1)
+         elif(tok == "FOR"):
+            rng = tokens[i+1][5:-1].split(',')
+            rng = [cmdSUB(i) for i in rng]
+            stt, end = [int(i) for i in rng]
+
+            for i in range(0,15)
+
+            forleft = end - stt
+            cmdASSIGN("VAR:ITER", "EQN:0")
+
+            i += 2
          elif(tok == "EXIT"):
             exit()
          elif(tok == "IF"):
@@ -311,7 +355,7 @@ def getVariable(v):
       return env[v]
    else:
       raise NameError(f"variable '{v}' is not defined")
-
+# </region>
 
 
 def run():
