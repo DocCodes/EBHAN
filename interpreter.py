@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # <region> Imports
 import sys
+import time
 import re
 import math
+import random
 from ast import literal_eval as escape
 from src import Enum, states
 # </region>
@@ -11,7 +13,7 @@ from src import Enum, states
 # <region> Prevars
 state = 0
 env = {
-   "VER": "STR:0.6.0a",
+   "VER": "STR:0.7.0a",
    "COPYRIGHT": "STR:Copyright (c) 2017-2018 Evan Young\\nAll Rights Reserved.",
    "TAG": "STR:AN EXTRA LANGUAGE FOR EXTRA PEOPLE"
 }
@@ -29,6 +31,7 @@ SimpleAppends = [
    "FOR",
    "DO",
    "ENDFOR",
+   "SLEEP",
 
    "STRING:UPPER",
    "STRING:LOWER",
@@ -37,8 +40,18 @@ SimpleAppends = [
    "INTEGER:CEIL",
    "INTEGER:FLOOR",
    "INTEGER:ROUND",
-   "INTEGER:FIGURE"
+   "INTEGER:FIGURE",
+   "RANDOM:RANDOM",
+   "RANDOM:RANGE",
+   "DATE:YEAR",
+   "DATE:MONTH",
+   "DATE:DATE",
+   "DATE:DAY",
+   "DATE:HOURS",
+   "DATE:MINUTES",
+   "DATE:SECONDS"
 ]
+
 # </region>
 
 
@@ -233,10 +246,12 @@ def cmdEVAL(v1, v2, op):
 def checkErrors(tokens):
    mx = len(tokens)-1
    if(mx >= 1):
-      if((tokens[mx-1].startswith("STRING:") or tokens[mx-1].startswith("INTEGER:")) and tokens[mx].startswith("VAR") == False): raise SyntaxError(f"object statement without variable, line {line}")
+      # if((tokens[mx-1].startswith("STRING:") or tokens[mx-1].startswith("INTEGER:")) and not tokens[mx].startswith("VAR")): raise SyntaxError(f"object statement without variable, line {line}")
+      if(tokens[mx-1] == "SLEEP" and not (tokens[mx].startswith("EQN") or tokens[mx].startswith("VAR"))): raise SyntaxError(f"sleep statement without time, line {line}")
+      if(tokens[mx-1] == "RANDOM:RANGE" and not (tokens[mx].startswith("VAR") or tokens[mx].startswith("EQN"))): raise SyntaxError(f"random range statement without minimum or maximum, line {line}")
    if(mx >= 2):
-      if(tokens[mx] == "INPUT" and tokens[mx-2].startswith("VAR") == False): raise SyntaxError(f"input without definition, line {line}")
-      if(tokens[mx-2] == "INTEGER:FIGURE" and (tokens[mx-1].startswith("VAR") == False or tokens[mx].startswith("EQN") == False)): raise SyntaxError(f"figure statement without figure, line {line}")
+      if(tokens[mx] == "INPUT" and not tokens[mx-2].startswith("VAR")): raise SyntaxError(f"input without definition, line {line}")
+      if(tokens[mx-2] == "INTEGER:FIGURE" and (not tokens[mx-1].startswith("VAR") or not tokens[mx].startswith("EQN"))): raise SyntaxError(f"figure statement without figure, line {line}")
    if(mx >= 4):
       if(tokens[mx-4] == "IF" and tokens[mx-2][4:-1] not in ["==", "!=", "<=", ">=", "<<", ">>", "[="]): raise SyntaxError(f"illegal comparator, line {line}")
 # </region>
@@ -297,7 +312,6 @@ def parse(tokens):
             elif(act == "FIGURE"):
                p = int(tokens[i+2][4:])
                new = float(f"{val:0.{p}f}")
-               print(new)
                add += 1
 
             cmdASSIGN(tokens[i+1], f"EQN:{new}")
@@ -306,6 +320,27 @@ def parse(tokens):
             if(tokens[i+2] == "INPUT"):
                val = cmdINPUT(tokens[i+3])
                i += 3
+            elif(tokens[i+2].startswith("RANDOM")):
+               act = tokens[i+2].split(":")[1]
+               if(act == "RANDOM"): val = f"EQN:{random.random()}"
+               elif(act == "RANGE"):
+                  rng = tokens[i+3][5:-1].split(',')
+                  rng = [cmdSUB(i) for i in rng]
+                  mn, mx = [int(i) for i in rng]
+                  val = f"EQN:{random.randint(mn, mx)}"
+               i += 2
+            elif(tokens[i+2].startswith("DATE")):
+               act = tokens[i+2].split(":")[1]
+
+               if(act == "YEAR"): bact = "year"
+               elif(act == "MONTH"): bact = "mon"
+               elif(act == "DATE"): bact = "mday"
+               elif(act == "DAY"): bact = "wday"
+               elif(act == "HOURS"): bact = "hour"
+               elif(act == "MINUTES"): bact = "min"
+               elif(act == "SECONDS"): bact = "sec"
+               val = f"EQN:{time.localtime().__getattribute__('tm_'+bact)}"
+               i += 2
             else:
                val = tokens[i+2]
                i += 2
@@ -316,18 +351,21 @@ def parse(tokens):
 
             rev = tokens[::-1]
             revi = abs(len(tokens)-i-1)
-            if (forleft > 0):i = abs(len(tokens)-rev.index('FOR', revi)-1)
+            if(forleft > 0):i = abs(len(tokens)-rev.index('FOR', revi)-1)
          elif(tok == "FOR"):
             rng = tokens[i+1][5:-1].split(',')
             rng = [cmdSUB(i) for i in rng]
             stt, end = [int(i) for i in rng]
 
-            for i in range(0,15)
-
             forleft = end - stt
             cmdASSIGN("VAR:ITER", "EQN:0")
 
             i += 2
+         elif(tok == "SLEEP"):
+            tm = getVariable(tokens[i+1][4:]) if tokens[i+1][:3] == "VAR" else cmdSUB(tokens[i+1])
+            tm = eval(tm[4:])
+            time.sleep(tm)
+            i += 1
          elif(tok == "EXIT"):
             exit()
          elif(tok == "IF"):
