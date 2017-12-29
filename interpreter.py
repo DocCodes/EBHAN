@@ -13,7 +13,7 @@ from src import Enum, states
 # <region> Prevars
 state = 0
 env = {
-   "VER": "STR:0.7.0a",
+   "VER": "STR:0.8.0a",
    "COPYRIGHT": "STR:Copyright (c) 2017-2018 Evan Young\\nAll Rights Reserved.",
    "TAG": "STR:AN EXTRA LANGUAGE FOR EXTRA PEOPLE"
 }
@@ -31,6 +31,10 @@ SimpleAppends = [
    "FOR",
    "DO",
    "ENDFOR",
+   "SWITCH",
+   "CASE",
+   "BREAK",
+   "ENDSWITCH",
    "SLEEP",
 
    "STRING:UPPER",
@@ -271,6 +275,7 @@ def parse(tokens):
    forleft = 0
    inif = False
    doif = False
+   comvar = None
 
    while(i < len(tokens)):
       if(verbose[2]):print(tokens[i])
@@ -331,15 +336,15 @@ def parse(tokens):
                i += 2
             elif(tokens[i+2].startswith("DATE")):
                act = tokens[i+2].split(":")[1]
+               val = "EQN:"
 
-               if(act == "YEAR"): bact = "year"
-               elif(act == "MONTH"): bact = "mon"
-               elif(act == "DATE"): bact = "mday"
-               elif(act == "DAY"): bact = "wday"
-               elif(act == "HOURS"): bact = "hour"
-               elif(act == "MINUTES"): bact = "min"
-               elif(act == "SECONDS"): bact = "sec"
-               val = f"EQN:{time.localtime().__getattribute__('tm_'+bact)}"
+               if(act == "YEAR"): val += str(time.localtime().__getattribute__("tm_year"))
+               elif(act == "MONTH"): val += str(time.localtime().__getattribute__("tm_mon"))
+               elif(act == "DATE"): val += str(time.localtime().__getattribute__("tm_mday"))
+               elif(act == "DAY"): val += str((time.localtime().__getattribute__("tm_wday")+1)%7)
+               elif(act == "HOURS"): val += str(time.localtime().__getattribute__("tm_hour"))
+               elif(act == "MINUTES"): val += str(time.localtime().__getattribute__("tm_min"))
+               elif(act == "SECONDS"): val += str(time.localtime().__getattribute__("tm_sec"))
                i += 2
             else:
                val = tokens[i+2]
@@ -383,6 +388,19 @@ def parse(tokens):
             i += 3
          elif(tok == "ELSE"):
             i = tokens.index("ENDIF", i)
+         elif(tok == "SWITCH"):
+            comvar = getVariable(tokens[i+1][4:])
+            i += 1
+         elif(tok == "CASE"):
+            print(tok, comvar, tokens[i+1][4:])
+            if (cmdEVAL(comvar[4:], tokens[i+1][4:], "==")):
+               while(tokens[i+2] == "CASE"):
+                  i += 2
+            else:
+               try:
+                  i = min(tokens.index("CASE", i+1)-1, tokens.index("ENDSWITCH", i)-1)
+               except:
+                  i = tokens.index("ENDSWITCH", i)-1
       elif(tok == "ELSE"):
          inif = False
          doif = False
