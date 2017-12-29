@@ -6,14 +6,28 @@ import re
 import math
 import random
 from ast import literal_eval as escape
-from src import Enum, states
 # </region>
 
 
 # <region> Prevars
-state = 0
+class Enum():
+   def __init__(self, *args):
+      for i in range(len(args)):
+         setattr(self, args[i], i)
+
+states = Enum("DEFAULT", "STRING", "EQUATION", "VARIABLE", "COMMENT", "LINE")
+"""
+0 : DEFAULT     : NORMAL
+1 : STRING      : INSIDE A LITERAL STATEMENT
+2 : EQUATION    : INSIDE A MATHEMATICAL STATEMENT
+3 : VARIABLE    : VARIABLE INSTANTIATION
+4 : COMMENT     : COMMENT MODE
+5 : LINE        : LINE COMMENT
+"""
+
+state = states.DEFAULT
 env = {
-   "VER": "STR:0.8.0a",
+   "VER": "STR:0.8.1a",
    "COPYRIGHT": "STR:Copyright (c) 2017-2018 Evan Young\\nAll Rights Reserved.",
    "TAG": "STR:AN EXTRA LANGUAGE FOR EXTRA PEOPLE"
 }
